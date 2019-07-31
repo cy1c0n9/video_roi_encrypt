@@ -1,6 +1,7 @@
 from abc import ABCMeta
 from abc import abstractmethod
 from key import Key3D
+from key import Key4D
 from random import randint
 from time import time
 import cv2
@@ -16,30 +17,22 @@ class Attractor:
     def __init__(self, xyz: list):
         self.xyz = xyz
 
+    @classmethod
+    @abstractmethod
+    def from_list(cls, l: list): pass
+
+    @classmethod
+    @abstractmethod
+    def from_key(cls, key: Key3D): pass
+
     @abstractmethod
     def __str__(self): pass
-    # return "%s %s %s" % (self.x_0, self.y_0, self.z_0)
-
-    @abstractmethod
-    def get_x(self, x, y, z, t): pass
-
-    @abstractmethod
-    def get_y(self, x, y, z, t): pass
-
-    @abstractmethod
-    def get_z(self, x, y, z, t): pass
-
-    @abstractmethod
-    def get_random_x(self): pass
-
-    @abstractmethod
-    def get_random_y(self): pass
-
-    @abstractmethod
-    def get_random_z(self): pass
 
     @abstractmethod
     def get_vec(self, vec, t) -> np.ndarray: pass
+
+    @abstractmethod
+    def check_valid(self) -> bool: pass
 
 
 class Lorenz(Attractor):
@@ -49,8 +42,9 @@ class Lorenz(Attractor):
     y domain: -15, 15
     z domain:   0, 40
     """
-    def __init__(self, x_0=None, y_0=None, z_0=None):
-        Attractor.__init__(self, x_0, y_0, z_0)
+
+    def __init__(self, xyz):
+        Attractor.__init__(self, xyz)
         self.a = 10
         self.b = 28
         self.c = 8 / 3
@@ -58,45 +52,19 @@ class Lorenz(Attractor):
     @classmethod
     def from_list(cls, l: list):
         if len(l) != 3:
-            print("Warning: invalid input!, initialize randomly")
-            return cls()
-        return cls(l[0], l[1], l[2])
+            print("Warning: invalid input!, initialize to zero")
+            return cls([0, 0, 0])
+        return cls(l)
 
     @classmethod
     def from_key(cls, key: Key3D):
         return cls.from_list(key.xyz)
 
-    def get_x(self, x, y, z, t):
-        """
-        get dx/dt
-        :return: dx/dt
-        """
-        return self.a * (y - x)
-
-    def get_y(self, x, y, z, t):
-        """
-        get dy/dt
-        :return: dy/dt
-        """
-        return x * (self.b - z) - y
-
-    def get_z(self, x, y, z, t):
-        """
-        get dz/dt
-        :return: dz/dt
-        """
-        return x * y - self.c * z
-
-    def get_random_x(self):
-        return np.random.uniform(-10, 10)
-
-    def get_random_y(self):
-        return np.random.uniform(-15, 15)
-
-    def get_random_z(self):
-        return np.random.uniform(0, 40)
-
     def get_vec(self, vec: np.ndarray, t) -> np.ndarray:
+        """
+        get dx/dt, dy/dt, dz/dt
+        :return: np.array(dx/dt, dy/dt, dz/dt)
+        """
         x = vec[0]
         y = vec[1]
         z = vec[2]
@@ -104,6 +72,58 @@ class Lorenz(Attractor):
         yr = x * (self.b - z) - y
         zr = x * y - self.c * z
         return np.array([xr, yr, zr])
+
+    def __str__(self):
+        return "%s %s %s" % (self.xyz[0], self.xyz[1], self.xyz[2])
+
+    def check_valid(self) -> bool:
+        return self.xyz and len(self.xyz) == 3
+
+
+class HyperLu(Attractor):
+    """
+    Lorenz attractor, the differential equation does not change according to t
+    x domain: -20, 20
+    y domain: -20, 20
+    z domain:   0, 40
+    u domain:-100, 100
+    the step size used in Hyper Lu attractor should  <= 0.02
+    """
+
+    def __init__(self, xyz):
+        Attractor.__init__(self, xyz)
+        self.a = 36.0
+        self.b = 3.0
+        self.c = 20.0
+        self.d = 0.5
+
+    @classmethod
+    def from_list(cls, l: list):
+        if len(l) != 4:
+            print("Warning: invalid input!, initialize to zero")
+            return cls([0, 0, 0, 0])
+        return cls(l)
+
+    @classmethod
+    def from_key(cls, key: Key4D):
+        return cls.from_list(key.xyz)
+
+    def get_vec(self, vec: np.ndarray, t) -> np.ndarray:
+        x = vec[0]
+        y = vec[1]
+        z = vec[2]
+        u = vec[3]
+        xr = self.a * (y - x) + u
+        yr = - x * z + self.c * y
+        zr = x * y - self.b * z
+        ur = x * z + self.d * u
+        return np.array([xr, yr, zr, ur])
+
+    def __str__(self):
+        return "%s %s %s %s" % (self.xyz[0], self.xyz[1], self.xyz[2], self.xyz[3])
+
+    def check_valid(self) -> bool:
+        return self.xyz and len(self.xyz) == 4
 
 
 class RungeKutta4:
@@ -163,37 +183,31 @@ class RungeKutta4:
 
 class Protocol:
 
-    def __init__(self, attractor):
+    def __init__(self, attractor: Attractor):
         self.attractor = attractor
         self.rk4 = RungeKutta4(attractor)
 
-    def skip_first_n(self, n: int, h=0.1) -> None:
+    def skip_first_n(self, n: int, h=0.01) -> None:
         """
         skip first n iteration to obtain a chaos orbit
         :param n: number of the iteration to skip
         :param h: step height
         :return: None
         """
-        # start_time = time()
-        if self.attractor.x_0 and self.attractor.y_0 and self.attractor.z_0:
-            x = self.attractor.x_0
-            y = self.attractor.y_0
-            z = self.attractor.z_0
+        start_time = time()
+        if self.attractor.check_valid():
+            xyz = self.attractor.xyz
         else:
             raise ValueError
-        sequence_i = np.array([x, y, z])
+        sequence_i = np.array(xyz)
         i = 0
         t = 0.0
         while i < n:
-            # x, y, z = sequence_i
-            # sequence_i = sequence_i + self.rk4.solve(x, y, z, t, h)
             sequence_i = sequence_i + self.rk4.solve_vector(sequence_i, t, h)
             t += h
             i += 1
-        self.attractor.x_0 = sequence_i[0]
-        self.attractor.y_0 = sequence_i[1]
-        self.attractor.z_0 = sequence_i[2]
-        # print("--- skip first n in %s seconds ---" % (time() - start_time))
+        self.attractor.xyz = sequence_i.tolist()
+        print("--- skip first n in %s seconds ---" % (time() - start_time))
         return None
 
     def get_sequence(self, n: int, h=0.01) -> np.ndarray:
@@ -205,13 +219,11 @@ class Protocol:
         """
         # start_time = time()
         sequence = []
-        if self.attractor.x_0 and self.attractor.y_0 and self.attractor.z_0:
-            x = self.attractor.x_0
-            y = self.attractor.y_0
-            z = self.attractor.z_0
+        if self.attractor.check_valid():
+            xyz = self.attractor.xyz
         else:
             raise ValueError
-        sequence_i = np.array([x, y, z])
+        sequence_i = np.array(xyz)
         i = 0
         t = 0.0
         while i < n:
@@ -221,9 +233,7 @@ class Protocol:
             sequence.append(sequence_i)
             t += h
             i += 1
-        self.attractor.x_0 = sequence_i[0]
-        self.attractor.y_0 = sequence_i[1]
-        self.attractor.z_0 = sequence_i[2]
+        self.attractor.xyz = sequence_i.tolist()
         # print("--- get sequence in %s seconds ---" % (time() - start_time))
         return np.array(sequence)
 
@@ -291,7 +301,7 @@ class Protocol:
         img_block = self.permute(img_block, sequence_h, sequence_w, code)
         return img_block
 
-    def encrypt(self, img, h=0.1):
+    def encrypt(self, img, h=0.01):
         height = len(img)
         width = len(img[0])
         sequence_h = np.rint(self.get_sequence(height, h) * 10000) % height
@@ -299,7 +309,7 @@ class Protocol:
         img = self.permute_twice(img, sequence_h, sequence_w, ENCRYPT)
         return img
 
-    def decrypt(self, img, h=0.1):
+    def decrypt(self, img, h=0.01):
         height = len(img)
         width = len(img[0])
         sequence_h = np.rint(self.get_sequence(height, h) * 10000) % height
@@ -307,6 +317,7 @@ class Protocol:
         img = self.permute_twice(img, sequence_h, sequence_w, DECRYPT)
         return img
 
+    """
     def encrypt_block(self, img, block_size=32):
         height = len(img)
         width = len(img[0])
@@ -336,8 +347,9 @@ class Protocol:
                 img[y1:y2, x1:x2] = self.block_operation(img[y1:y2, x1:x2], y2 - y1, x2 - x1, DECRYPT)
         # img = self.block_operation(img, height, width, ENCRYPT)
         return img
+    """
 
-    def rand_perm_map(self, length, h=0.1) -> np.ndarray:
+    def rand_perm_map(self, length, h=0.01) -> np.ndarray:
         # start_time = time()
         idx_mat = np.arange(length)
         sequence = np.rint(self.get_sequence(length, h) * 100000)
@@ -366,55 +378,3 @@ class Protocol:
             raise AttributeError
         # print("--- reorder in %s seconds ---" % (time() - start_time))
         return res
-
-
-class HyperLu(Attractor):
-    """
-    Lorenz attractor, the differential equation does not change according to t
-    x domain: -10, 10
-    y domain: -15, 15
-    z domain:   0, 40
-    """
-
-    def get_x(self, x, y, z, t):
-        pass
-
-    def get_y(self, x, y, z, t):
-        pass
-
-    def get_z(self, x, y, z, t):
-        pass
-
-    def get_random_x(self):
-        pass
-
-    def get_random_y(self):
-        pass
-
-    def get_random_z(self):
-        pass
-
-    def __init__(self, x_0=None, y_0=None, z_0=None, u_0=None):
-        Attractor.__init__(self, x_0, y_0, z_0, u_0)
-        self.a = 36.0
-        self.b = 3.0
-        self.c = 20.0
-        self.d = 0.5
-
-    @classmethod
-    def from_list(cls, l: list):
-        if len(l) < 4:
-            print("Warning: invalid input!, initialize randomly")
-            return cls()
-        return cls(l[0], l[1], l[2], l[3])
-
-    def get_vec(self, vec: np.ndarray, t) -> np.ndarray:
-        x = vec[0]
-        y = vec[1]
-        z = vec[2]
-        u = vec[3]
-        xr = self.a * (y - x) + u
-        yr = - x * z + self.c * y
-        zr = x * y - self.b * z
-        ur = x * z + self.d * u
-        return np.array([xr, yr, zr, ur])

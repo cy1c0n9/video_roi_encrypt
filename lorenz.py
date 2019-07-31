@@ -111,7 +111,8 @@ class HyperLorenz(Attractor):
         return np.array([xr, yr, zr, ur])
 
 
-attractor = HyperLu.from_list([8.0, 4.00000, 4.0, 3.0])
+# attractor = HyperLu.from_list([8.0, 4.00000, 4.0, 3.0])
+attractor = HyperLu.from_list([1.1381133082873731, 1.2990637231862848, 8.822348261655519, 1.2990637231862848])
 rk4 = RungeKutta4(attractor)
 start = time()
 t = np.arange(0, 50.0, 0.01)
@@ -124,7 +125,7 @@ u = attractor.u_0
 
 sequence_i = np.array([x, y, z, u])
 for ti in t:
-    sequence_i = sequence_i + rk4.solve(sequence_i, t, 0.01)
+    sequence_i = sequence_i + rk4.solve(sequence_i, t, 0.001)
     sequence.append(sequence_i)
 print("--- generate %s seconds ---" % (time() - start))
 

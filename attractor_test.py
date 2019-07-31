@@ -1,5 +1,6 @@
 from attractor import Lorenz
-from key import Key3D as Key
+from attractor import HyperLu
+from key import Key4D as Key
 from attractor import Protocol
 from attractor import ENCRYPT, DECRYPT
 import numpy as np
@@ -11,11 +12,12 @@ image_folder = "./images/"
 filename = "loki.jpg"
 
 # key = np.random.uniform(-10, 10), np.random.uniform(-15, 15), np.random.uniform(0, 40)
-key_l = [11.381133082873731, 12.990637231862848, 8.822348261655519, 1000]
+key_l = [11.381133082873731, 12.990637231862848, 8.822348261655519, 12.990637231862848, 1000]
 
 # init encoder
 key_m = Key.from_list(key_l)
-master = Lorenz.from_key(key_m)
+# master = Lorenz.from_key(key_m)
+master = HyperLu.from_key(key_m)
 sender = Protocol(master)
 sender.skip_first_n(key_m.n)
 
@@ -25,11 +27,12 @@ key_str = str(key_m)
 
 # init decoder
 key_s = Key.from_str(key_str)
-slave = Lorenz.from_key(key_s)
+# slave = Lorenz.from_key(key_s)
+slave = HyperLu.from_key(key_s)
 receiver = Protocol(slave)
 receiver.skip_first_n(key_s.n)
-# print(master)
-# print(slave)
+print(master)
+print(slave)
 print(' ')
 # print(key_l[0])
 # print(key_l[0] * 10000)
