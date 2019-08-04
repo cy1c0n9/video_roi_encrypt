@@ -1,5 +1,5 @@
 from attractor import Lorenz
-from attractor import Key
+from attractor import Key3D as Key
 from attractor import Protocol
 import numpy as np
 import cv2

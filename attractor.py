@@ -194,7 +194,7 @@ class Protocol:
         :param h: step height
         :return: None
         """
-        start_time = time()
+        # start_time = time()
         if self.attractor.check_valid():
             xyz = self.attractor.xyz
         else:
@@ -207,7 +207,7 @@ class Protocol:
             t += h
             i += 1
         self.attractor.xyz = sequence_i.tolist()
-        print("--- skip first n in %s seconds ---" % (time() - start_time))
+        # print("--- skip first n in %s seconds ---" % (time() - start_time))
         return None
 
     def get_sequence(self, n: int, h=0.01) -> np.ndarray:
@@ -237,20 +237,22 @@ class Protocol:
         # print("--- get sequence in %s seconds ---" % (time() - start_time))
         return np.array(sequence)
 
-    def permute(self, matrix, sequence_height, sequence_width, code):
+    def permute(self, matrix, sequence, code):
         # start_time = time()
+        height = len(matrix)
+        width = len(matrix[0])
         if code == 1:
             # self.make_roll(b.T, g.T, r.T, sequence_width, code)
             # self.make_roll(b, g, r, sequence_height, code)
             a = np.transpose(matrix, axes=[1, 0, 2])
-            self.make_roll_rgb(a, sequence_width, code, 0)
-            self.make_roll_rgb(matrix, sequence_height, code, 0)
+            self.make_roll_rgb(a, sequence, width, code, 0)
+            self.make_roll_rgb(matrix, sequence, height, code, 2)
             # print("--- permute in %s seconds ---" % (time() - start_time))
             return matrix
         elif code == -1:
-            self.make_roll_rgb(matrix, sequence_height, code, 0)
+            self.make_roll_rgb(matrix, sequence, height, code, 2)
             a = np.transpose(matrix, axes=[1, 0, 2])
-            self.make_roll_rgb(a, sequence_width, code, 0)
+            self.make_roll_rgb(a, sequence, width, code, 0)
             # self.make_roll(b, g, r, sequence_height, code)
             # self.make_roll(b.T, g.T, r.T, sequence_width, code)
             # print("--- permute in %s seconds ---" % (time() - start_time))
@@ -258,63 +260,75 @@ class Protocol:
         else:
             raise AttributeError
 
-    def permute_twice(self, matrix, sequence_height, sequence_width, code):
+    def permute_twice(self, matrix, sequence, code):
+        start_time = time()
+        height = len(matrix)
+        width = len(matrix[0])
         if code == 1:
             a = np.transpose(matrix, axes=[1, 0, 2])
-            self.make_roll_rgb(a, sequence_width, code, 0)
-            self.make_roll_rgb(matrix, sequence_height, code, 0)
+            self.make_roll_rgb(a, sequence, width, code, 0)
+            self.make_roll_rgb(matrix, sequence, height, code, 2)
             # a = np.transpose(matrix, axes=[1, 0, 2])
-            self.make_roll_rgb(a, sequence_width, code, 2)
-            self.make_roll_rgb(matrix, sequence_height, code, 2)
+            self.make_roll_rgb(a, sequence, width, code, 3)
+            # self.make_roll_rgb(matrix, sequence, height, code, 1)
         elif code == -1:
-            self.make_roll_rgb(matrix, sequence_height, code, 2)
+            # self.make_roll_rgb(matrix, sequence, height, code, 1)
             a = np.transpose(matrix, axes=[1, 0, 2])
-            self.make_roll_rgb(a, sequence_width, code, 2)
-            self.make_roll_rgb(matrix, sequence_height, code, 0)
+            self.make_roll_rgb(a, sequence, width, code, 3)
+            self.make_roll_rgb(matrix, sequence, height, code, 2)
             # a = np.transpose(matrix, axes=[1, 0, 2])
-            self.make_roll_rgb(a, sequence_width, code, 0)
+            self.make_roll_rgb(a, sequence, width, code, 0)
         else:
             raise AttributeError
+        print("--- permute in %s seconds ---" % (time() - start_time))
         return matrix
 
     @staticmethod
-    def make_roll(b, g, r, sequence, direction):
-        length = len(sequence)
-        for i in range(length):
-            b[i] = np.roll(b[i], int(sequence[i][1]) * direction, axis=0)
-            g[i] = np.roll(g[i], int(sequence[i][1]) * direction, axis=0)
-            r[i] = np.roll(r[i], int(sequence[i][1]) * direction, axis=0)
-
-    @staticmethod
-    def make_roll_rgb(img, sequence, direction, coordinate):
+    def make_roll_rgb(img, sequence, length, direction, coordinate):
         # start_time = time()
-        length = len(sequence)
+        # length = len(sequence)
         for i in range(length):
             img[i] = np.roll(img[i], int(sequence[i][coordinate]) * direction, axis=0)
         # print("--- roll in %s seconds ---" % (time() - start_time))
 
-    def block_operation(self, img_block, height: int, width: int, code, h=0.1):
-        if height != len(img_block) or width != len(img_block[0]):
-            raise ValueError
-        sequence_h = np.rint(self.get_sequence(height, h) * 10000) % height
-        sequence_w = np.rint(self.get_sequence(width, h) * 10000) % width
-        img_block = self.permute(img_block, sequence_h, sequence_w, code)
-        return img_block
-
     def encrypt(self, img, h=0.01):
         height = len(img)
         width = len(img[0])
-        sequence_h = np.rint(self.get_sequence(height, h) * 10000) % height
-        sequence_w = np.rint(self.get_sequence(width, h) * 10000) % width
-        img = self.permute_twice(img, sequence_h, sequence_w, ENCRYPT)
+        length = max(height, width)
+        module = height + width
+        sequence = np.rint(self.get_sequence(length, h) * 10000) % module
+        # sequence_h = np.rint(self.get_sequence(height, h) * 10000) % height
+        # sequence_w = np.rint(self.get_sequence(width, h) * 10000) % width
+        img = self.permute_twice(img, sequence, ENCRYPT)
         return img
 
     def decrypt(self, img, h=0.01):
         height = len(img)
         width = len(img[0])
-        sequence_h = np.rint(self.get_sequence(height, h) * 10000) % height
-        sequence_w = np.rint(self.get_sequence(width, h) * 10000) % width
-        img = self.permute_twice(img, sequence_h, sequence_w, DECRYPT)
+        length = max(height, width)
+        module = height + width
+        sequence = np.rint(self.get_sequence(length, h) * 10000) % module
+        # sequence_h = np.rint(self.get_sequence(height, h) * 10000) % height
+        # sequence_w = np.rint(self.get_sequence(width, h) * 10000) % width
+        img = self.permute_twice(img, sequence, DECRYPT)
+        return img
+
+    def encrypt_permute_1(self, img, h=0.01):
+        height = len(img)
+        width = len(img[0])
+        length = max(height, width)
+        module = height + width
+        sequence = np.rint(self.get_sequence(length, h) * 10000) % module
+        img = self.permute(img, sequence, ENCRYPT)
+        return img
+
+    def decrypt_permute_1(self, img, h=0.01):
+        height = len(img)
+        width = len(img[0])
+        length = max(height, width)
+        module = height + width
+        sequence = np.rint(self.get_sequence(length, h) * 10000) % module
+        img = self.permute(img, sequence, DECRYPT)
         return img
 
     """
@@ -347,6 +361,14 @@ class Protocol:
                 img[y1:y2, x1:x2] = self.block_operation(img[y1:y2, x1:x2], y2 - y1, x2 - x1, DECRYPT)
         # img = self.block_operation(img, height, width, ENCRYPT)
         return img
+        
+    @staticmethod
+    def make_roll(b, g, r, sequence, direction):
+        length = len(sequence)
+        for i in range(length):
+            b[i] = np.roll(b[i], int(sequence[i][1]) * direction, axis=0)
+            g[i] = np.roll(g[i], int(sequence[i][1]) * direction, axis=0)
+            r[i] = np.roll(r[i], int(sequence[i][1]) * direction, axis=0)
     """
 
     def rand_perm_map(self, length, h=0.01) -> np.ndarray:
