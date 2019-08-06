@@ -67,19 +67,19 @@ class Key4D(Key):
     @classmethod
     def from_str(cls, s: str):
         key_l = list(map(float, s.split(' ')))
-        if len(key_l) != 5:
+        if len(key_l) != 6:
             print("Error: invalid key string!")
-            return cls([0, 0, 0, 0], 0)
-        key_l[4] = int(key_l[4])
-        return cls(key_l[0:-1], key_l[4])
+            return cls([0, 0, 0, 0, 0], 0)
+        key_l[-1] = int(key_l[-1])
+        return cls(key_l[0:-1], key_l[-1])
 
     @classmethod
     def from_list(cls, l: list):
-        if len(l) != 5:
+        if len(l) != 6:
             print("Error: invalid key string!")
-            return cls([0, 0, 0, 0], 0)
-        l[4] = int(l[4])
-        return cls(l[0:-1], l[4])
+            return cls([0, 0, 0, 0, 0], 0)
+        l[-1] = int(l[-1])
+        return cls(l[0:-1], l[-1])
 
     @classmethod
     def rand_init(cls):
@@ -88,8 +88,41 @@ class Key4D(Key):
         z = np.random.uniform(0, 40)
         u = np.random.uniform(-100, 100)
         n = randint(1000, 3000)
-        return cls([x, y, z, u], n)
+        d = np.random.uniform(0, 1)
+        return cls([x, y, z, u, d], n)
 
     def __str__(self):
-        return "%s %s %s %s %d" % (self.xyz[0], self.xyz[1], self.xyz[2], self.xyz[3], self.n)
+        return "%s %s %s %s %s %d" % (self.xyz[0], self.xyz[1], self.xyz[2], self.xyz[3], self.xyz[4], self.n)
 
+
+def generate_new_key(face_id) -> Key4D:
+    import redis
+
+    redis_host = "localhost"
+    redis_port = 6379
+    redis_password = ""
+    r = redis.StrictRedis(host=redis_host, port=redis_port, password=redis_password, decode_responses=True)
+    new_key = Key4D.rand_init()
+    r.hset("face_key_management", face_id, str(new_key))
+
+    return new_key
+
+
+def get_key_from_redis(face_id) -> Key4D:
+    import redis
+
+    redis_host = "localhost"
+    redis_port = 6379
+    redis_password = ""
+    r = redis.StrictRedis(host=redis_host, port=redis_port, password=redis_password, decode_responses=True)
+    key_s = r.hget("face_key_management", face_id)
+    key = Key4D.from_str(key_s)
+
+    return key
+
+
+# k = generate_new_key('1507bcbd-4b8f-422f-b657-c73d7e22a26b')
+# print(k)
+#
+# k_p = get_key_from_redis('1')
+# print(k_p)

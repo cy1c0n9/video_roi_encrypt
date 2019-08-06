@@ -23,7 +23,7 @@ class Attractor:
 
     @classmethod
     @abstractmethod
-    def from_key(cls, key: Key3D): pass
+    def from_key(cls, key): pass
 
     @abstractmethod
     def __str__(self): pass
@@ -87,21 +87,22 @@ class HyperLu(Attractor):
     y domain: -20, 20
     z domain:   0, 40
     u domain:-100, 100
+    d :         0, 1.3
     the step size used in Hyper Lu attractor should  <= 0.02
     """
 
-    def __init__(self, xyz):
-        Attractor.__init__(self, xyz)
+    def __init__(self, xyzud):
+        Attractor.__init__(self, xyzud[0:4])
         self.a = 36.0
         self.b = 3.0
         self.c = 20.0
-        self.d = 0.5
+        self.d = xyzud[4]
 
     @classmethod
     def from_list(cls, l: list):
-        if len(l) != 4:
+        if len(l) != 5:
             print("Warning: invalid input!, initialize to zero")
-            return cls([0, 0, 0, 0])
+            return cls([0, 0, 0, 0, 0])
         return cls(l)
 
     @classmethod
@@ -261,7 +262,7 @@ class Protocol:
             raise AttributeError
 
     def permute_twice(self, matrix, sequence, code):
-        start_time = time()
+        # start_time = time()
         height = len(matrix)
         width = len(matrix[0])
         if code == 1:
@@ -280,7 +281,7 @@ class Protocol:
             self.make_roll_rgb(a, sequence, width, code, 0)
         else:
             raise AttributeError
-        print("--- permute in %s seconds ---" % (time() - start_time))
+        # print("--- permute in %s seconds ---" % (time() - start_time))
         return matrix
 
     @staticmethod
