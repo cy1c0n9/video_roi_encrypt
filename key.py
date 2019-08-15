@@ -116,10 +116,11 @@ def get_key_from_redis(face_id) -> Key4D:
     redis_password = ""
     r = redis.StrictRedis(host=redis_host, port=redis_port, password=redis_password, decode_responses=True)
     key_s = r.hget("face_key_management", face_id)
-    key = Key4D.from_str(key_s)
-
-    return key
-
+    if key_s is not None:
+        key = Key4D.from_str(key_s)
+        return key
+    else:
+        raise AssertionError
 
 # k = generate_new_key('1507bcbd-4b8f-422f-b657-c73d7e22a26b')
 # print(k)

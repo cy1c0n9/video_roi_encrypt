@@ -238,6 +238,35 @@ class Protocol:
         # print("--- get sequence in %s seconds ---" % (time() - start_time))
         return np.array(sequence)
 
+    def get_sequence_block_4(self, n: int, h=0.01) -> np.ndarray:
+        """
+        generate n element
+        :param n: n element to be generated
+        :param h: step height
+        :return:
+        """
+        # start_time = time()
+        sequence = []
+        length = n // 4 + 1
+        if self.attractor.check_valid():
+            xyz = self.attractor.xyz
+        else:
+            raise ValueError
+        sequence_i = np.array(xyz)
+        i = 0
+        t = 0.0
+        while i < length:
+            # x, y, z = sequence_i
+            # sequence_i = sequence_i + self.rk4.solve(x, y, z, t, h)
+            sequence_i = sequence_i + self.rk4.solve_vector(sequence_i, t, h)
+            for _ in range(4):
+                sequence.append(sequence_i)
+            t += h
+            i += 1
+        self.attractor.xyz = sequence_i.tolist()
+        # print("--- get sequence in %s seconds ---" % (time() - start_time))
+        return np.array(sequence)
+
     def permute(self, matrix, sequence, code):
         # start_time = time()
         height = len(matrix)
@@ -297,10 +326,16 @@ class Protocol:
         width = len(img[0])
         length = max(height, width)
         module = height + width
-        sequence = np.rint(self.get_sequence(length, h) * 10000) % module
+        # start_time = time()
+        if length > 250:
+            sequence = np.rint(self.get_sequence_block_4(length, h) * 10000) % module
+        else:
+            sequence = np.rint(self.get_sequence(length, h) * 10000) % module
         # sequence_h = np.rint(self.get_sequence(height, h) * 10000) % height
         # sequence_w = np.rint(self.get_sequence(width, h) * 10000) % width
         img = self.permute_twice(img, sequence, ENCRYPT)
+        # print("encrypt one face in %s second" % (time() - start_time))
+        # print(' ')
         return img
 
     def decrypt(self, img, h=0.01):
@@ -308,7 +343,10 @@ class Protocol:
         width = len(img[0])
         length = max(height, width)
         module = height + width
-        sequence = np.rint(self.get_sequence(length, h) * 10000) % module
+        if length > 250:
+            sequence = np.rint(self.get_sequence_block_4(length, h) * 10000) % module
+        else:
+            sequence = np.rint(self.get_sequence(length, h) * 10000) % module
         # sequence_h = np.rint(self.get_sequence(height, h) * 10000) % height
         # sequence_w = np.rint(self.get_sequence(width, h) * 10000) % width
         img = self.permute_twice(img, sequence, DECRYPT)
